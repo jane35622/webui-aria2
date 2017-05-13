@@ -1,43 +1,45 @@
-FROM alpine:3.3
-MAINTAINER Morgan Auchede <morgan.auchede@gmail.com>
+FROM nginx:alpine
+
+LABEL \
+    maintainer="Morgan Auchede <morgan.auchede@gmail.com>"
 
 ENV \
-    S6_OVERLAY_VERSION=1.17.1.2 \
-    SYSLOG_STDOUT_VERSION=1.1.1 \
-    WEBUI_ARIA2_VERSION=e48a7a79
+    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+    S6_KEEP_ENV=1 \
+    WEBUI_ARIA2_VERSION=latest
 
-RUN set -x \
+RUN set -eux \
 
     # Install packages
 
-    && apk add --no-cache --no-progress --virtual build_deps \
+    && apk add --no-cache --no-progress --virtual BUILD_DEPS \
+           curl \
            git \
-
-    && apk add --no-cache --no-progress \
-           nginx \
 
     # Install s6-overlay
 
-    && curl -sL "https://github.com/just-containers/s6-overlay/releases/download/v$S6_OVERLAY_VERSION/s6-overlay-amd64.tar.gz" | tar fxz - -C / \
+    && export $(curl "https://raw.githubusercontent.com/timonier/version-lister/release/generated/s6-overlay/latest" | xargs) \
+
+    && curl --location "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-amd64.tar.gz" | tar --directory / --extract --gzip \
 
     # Install syslog-stdout
 
-    && curl -sL "https://github.com/timonier/syslog-stdout/releases/download/v$SYSLOG_STDOUT_VERSION/syslog-stdout.tar.gz" | tar fxz - -C /usr/sbin \
+    && export $(curl "https://raw.githubusercontent.com/timonier/version-lister/release/generated/syslog-stdout/latest" | xargs) \
+
+    && curl --location "https://github.com/timonier/syslog-stdout/releases/download/v${SYSLOG_STDOUT_VERSION}/syslog-stdout.tar.gz" | tar --directory /usr/sbin --extract --gzip \
 
     # Install webui-aria2
 
     && git clone https://github.com/ziahamza/webui-aria2 /usr/share/webui-aria2 \
-    && git -C /usr/share/webui-aria2 checkout $WEBUI_ARIA2_VERSION \
 
     # Clean
 
     && apk del --no-progress \
-           build_deps \
+           BUILD_DEPS \
 
-    && rm -rf \
+    && rm -f -r \
            /tmp/* \
-           /usr/share/webui-aria2/.git \
-           /var/www
+           /usr/share/webui-aria2/.git
 
 COPY ./rootfs /
 
